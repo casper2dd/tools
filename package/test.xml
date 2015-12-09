@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<configure>
+    <network>
+        <host hostname="manager"/>
+        <host hostname="database"/>
+        <host hostname="game"/>
+    </network>
+    <groups>
+        <group name="pubhu" apps="start,stop"/>
+    </groups>
+
+    <application name="start">
+        <part>
+            <systemrun host="" command="sleep 10">
+        </part>
+        <part>
+            <systemrun host="" command="data">
+        </part>
+    </application>
+
+</configure>
