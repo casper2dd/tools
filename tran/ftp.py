@@ -1,4 +1,5 @@
-﻿import sys
+﻿from __future__ import division
+import sys
 import os
 import ftplib
 import socket
@@ -8,13 +9,16 @@ import time
 
 class ftp(object):
 
-  def __init__(self, host='', usr='', psw='', log_file=None,buffer_size=8192):
+  def __init__(self, host='', usr='', psw='', log_file=None,buffer_size=1024):
     
     self._host = host
     self._username = usr
     self._pwd = psw
     self._log_file = log_file
     self._buffer_size = buffer_size
+    self._sizeWritten = 0.0
+    self._totalSize = 0.0
+    self._percentComplete = 0
 
 
 
@@ -55,7 +59,9 @@ class ftp(object):
             self.mkd(remoteFile)
     try:
         remoteFile=os.path.join(remoteFile,os.path.basename(localFile))
-        self._ftp.storbinary('STOR %s'%remoteFile, f, self._buffer_size)
+        totalsize = os.path.getsize(localFile)
+        uploadTracker = FtpUploadTracker(int(totalsize))
+        self._ftp.storbinary('STOR %s'%remoteFile, f, self._buffer_size,uploadTracker.handle)
         f.close()
     except ftplib.error_perm:
         return False
@@ -88,6 +94,7 @@ class ftp(object):
     #   f.close()
     # except ftplib.error_perm:
     #   return False
+    totalsize = self._ftp.size(remoteFile)
 
     if os.path.basename(localFile) == '':
       localFile=os.path.join(localFile, remoteFile)
@@ -95,10 +102,12 @@ class ftp(object):
       os.makedirs(os.path.dirname(localFile))
     f = open(localFile,"wb")
     try:
-      self._ftp.retrbinary("RETR %s"%remoteFile, f.write, self._buffer_size)
-      f.close()
+      downloadTracker = FtpDownloadTracker(int(totalsize),f)
+      self._ftp.retrbinary("RETR %s"%remoteFile, downloadTracker.handle, self._buffer_size)
     except ftplib.error_perm:
       return False
+    finally:
+      f.close()
 
 
   def downloadfolder(self,localfolder,remotefolder):
@@ -169,6 +178,45 @@ class ftp(object):
     else:
         return upload_folder
 
+class FtpUploadTracker(object):
+    sizeWritten = 0
+    totalSize = 0
+    lastShownPercent = 0
+
+    def __init__(self, totalSize):
+        self.totalSize = totalSize
+
+    def handle(self, block):
+        self.sizeWritten += 1024
+        percentComplete = round((self.sizeWritten / self.totalSize) * 100)
+        # print '---------lastShownPercent---------',self.lastShownPercent
+        # print '*********percentComplete**********',percentComplete
+        if (self.lastShownPercent != percentComplete):
+            self.lastShownPercent = percentComplete
+            print(str(percentComplete) + " percent complete")
+
+class FtpDownloadTracker(object):
+    sizeWritten = 0
+    totalSize = 0
+    lastShownPercent = 0
+
+    def __init__(self, totalSize,f):
+        self.totalSize = totalSize
+        self.f = f
+
+    def handle(self, block):
+        # f = open(self.filename, "ab")
+        self.f.write(block)
+        self.f.flush()
+        # f.close()
+        self.sizeWritten += 1024
+        percentComplete = round((self.sizeWritten / self.totalSize) * 100)
+        if (self.lastShownPercent != percentComplete):
+            self.lastShownPercent = percentComplete           
+            print(str(percentComplete) + " percent complete")
+
+
+
 #/upload/123123123123/test.txt
 
 
@@ -189,14 +237,16 @@ class ftp(object):
 # a.downloadfiles('D:\\test\\test','/pub')
 # a.disconnect()
 
-a=ftp(host='119.29.112.176',usr='ftpuser',psw='66110467')
+a=ftp(host='192.168.70.131',usr='liancheng',psw='66110467')
 a.connect()
-a.dir('')
+# a.upload('E:\\Tools\\sogou_pinyin_78h.exe','./')
+# a.dir('')
+a.downloadfile('E:\\','./sogou_pinyin_78h.exe')
 # b = a.list('upload/1288/')
 # print b
 # c = a.find_folder('test/')
 # print c
-# if b:
+# if b:  37157568  
 #   print 'already'
 # else:
 #   print 'mkdir'
